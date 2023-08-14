@@ -5,6 +5,41 @@
 <script src="js/tf.js"></script>
 <script type="module">
 
+const format = new Intl.NumberFormat('en-US', { maximumSignificantDigits: 3 }).format
+  // create a tooltip
+  const tooltip = d3.select("#container")
+    .append("div")
+    .style("opacity", 0)
+    .attr("class", "tooltip")
+    .style("background-color", "white")
+    .style("border", "solid")
+    .style("border-width", "2px")
+    .style("border-radius", "5px")
+    .style("padding", "5px")
+    .style("position", "fixed")
+
+  // Three function that change the tooltip when user hover / move / leave a cell
+  const mouseover = function(event,d) {
+    tooltip
+      .style("opacity", 1)
+    d3.select(this)
+      .style("stroke", "black")
+      .style("opacity", 1)
+  }
+  const mousemove = function(event,d) {
+    const ix = d3.select(this).attr("ix")
+    tooltip
+      .html("index: " + ix + "<br>value: " + format(d))
+      .style("left", (event.x)+50 + "px")
+      .style("top", (event.y)+50 + "px")
+  }
+  const mouseleave = function(event,d) {
+    tooltip
+      .style("opacity", 0)
+    d3.select(this)
+      .style("stroke", "none")
+  }
+
 // Declare the chart dimensions and margins.
 const width = 1280;
 const height = 900;
@@ -107,9 +142,13 @@ svg.selectAll(".m")
   .attr("class", "m")
   .attr("x", (d, i)=>x(px(i % dataCols)))
   .attr("y", (d, i)=>y(py(Math.trunc(i / dataCols))))
+  .attr("ix", (d, i)=>i)
   .attr("width", x.bandwidth())
   .attr("height", y.bandwidth())
-  .attr("fill", (d)=>color(d));
+  .style("fill", (d)=>color(d))
+  .on("mouseover", mouseover)
+  .on("mousemove", mousemove)
+  .on("mouseleave", mouseleave)
 
 var l2 = rowSums.map(x=>Math.sqrt(x));
 l2color.domain([d3.min(l2),d3.max(l2)]);
@@ -119,9 +158,13 @@ svg.selectAll(".r")
   .attr("class", "r")
   .attr("x", m.right + 2*x.bandwidth())
   .attr("y", (d, i)=> y(py(i)))
+  .attr("ix", (d, i)=>i)
   .attr("width", x.bandwidth())
   .attr("height", y.bandwidth())
-  .attr("fill", (d)=>l2color(d));
+  .attr("fill", (d)=>l2color(d))
+  .on("mouseover", mouseover)
+  .on("mousemove", mousemove)
+  .on("mouseleave", mouseleave)
 
 l2 = colSums.map(x=>Math.sqrt(x));
 l2color.domain([d3.min(l2),d3.max(l2)]);
@@ -131,9 +174,13 @@ svg.selectAll(".c")
   .attr("class", "c")
   .attr("y", m.bottom + 2*y.bandwidth())
   .attr("x", (d, i)=> x(px(i)))
+  .attr("ix", (d, i)=>i)
   .attr("width", x.bandwidth())
   .attr("height", y.bandwidth())
-  .attr("fill", (d)=>l2color(d));
+  .attr("fill", (d)=>l2color(d))
+  .on("mouseover", mouseover)
+  .on("mousemove", mousemove)
+  .on("mouseleave", mouseleave)
 
 }
 
