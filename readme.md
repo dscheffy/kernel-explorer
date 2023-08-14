@@ -11,3 +11,13 @@ I usually start at the last kernel to see which inputs have the greatest effect 
 It would be nice to be able to sort the matrix rows or columns by either individual columns/rows, or by the average value (l2 norm) of those rows or columns. 
 
 From there I'd like to be able to "zoom" in to a row or column to see the rows/columns from the previous layer that feed into it. 
+
+## Sorting
+
+If I want to sort all of the rows by a single column, I need to create a permutator -- a function which will map the initial index (row number) to the sorted index (row number). Numpy has a function `argsort` which will take an array and return a new array of the same length that maps the old array indexes to corresponding indexes in the sorted array. I think in this case I need to argsort those results a second time to get the permutator that I want. 
+
+
+
+## Other Ideas
+
+I just got a basic initial draft working that displays the kernel matrix of a dense layer along with a drop down for selecting which layer to display. One thing that occurred to me while switching through the layers is that it might help to show at right angles to one another in a pipeline of sorts. The oututs of each layer flow into the inputs of the subsequent layer -- the rows map to the inputs, and the columns to the outputs, but if you transposed all of the even layers, then columns would map to inputs and rows to outputs, so you could position the even layers below the odd ones and the odd ones to the right of the even ones in such a way that columns flow down into columns and rows flow over to neighboring rows. Rather than a waterfall, you where transposed layers are always under nontransposed layers, you could alternate down/up to fit it all into landscape oriented rectangle a little better. 
