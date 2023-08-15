@@ -1,5 +1,79 @@
+// Create some basic functions for reuse later on
 
+// Creates a bounding box for containing stuff
+const bbox = function (width, height, leftOffset, topOffset) {
+  return {
+    width,
+    height,
+    left: leftOffset,
+    bottom: height + topOffset,
+    right: leftOffset + width,
+    top: topOffset
+  };
+}
+
+// Creates a bounding box for a matrix with the shape specified 
+// that fully fits inside of the outer bounding box taking up
+// as much space as it can given the respective shapes
+const mbox = function (bbox, shape) {
+  const [gridHeight, gridWidth] = shape;
+  // leave an extra margin for aggregator displays
+  const gridMargin = 3;
+  const box = {}
+  if ((gridHeight + gridMargin) / (gridWidth + gridMargin) > bbox.height / bbox.width) {
+    // tall matrix, use bbox height, adjust width
+    box.height = bbox.height * (1 - gridMargin / (gridHeight + gridMargin));
+    box.width = box.height * gridWidth / gridHeight;
+    box.top = bbox.top;
+    box.left = bbox.left + (bbox.width - box.width) / 2; // need to fix based on margin
+  } else {
+    // fat matrix, use bbox width, adjust height
+    box.width = bbox.width * (1 - gridMargin / (gridWidth + gridMargin));
+    box.height = box.width * gridHeight / gridWidth;
+    box.left = bbox.left;
+    box.top = bbox.top + (bbox.height - box.height) / 2; // need to take margin into account
+  }
+  box.bottom = box.top + box.height;
+  box.right = box.left + box.width;
+  console.log(box, bbox, shape)
+  return box;
+}
+
+
+// A number formatter that only shows three significant digits, more gets a bit unruly
 const format = new Intl.NumberFormat('en-US', { maximumSignificantDigits: 3 }).format
+
+/**
+ * creates a permutator function for mapping an initial index in an array
+ * to the index where it would appear if the array was sorted (based on the)
+ * order of elements in the originally provided array. This can be used for
+ * sorting other arrays of the same length.
+ *
+ *   const dabc = ["D", "A", "B", "C"];
+ *   const permutate = permutator(dabc);
+ *   permutate[0]
+ *   // 3
+ *   permutate[1]
+ *   // 0
+ */
+const permutator = (A) => {
+  const p = [...A].map((x, i) => [x, i]).sort((a, b) => a[0] > b[0]).map(([x, i]) => i)
+  const p2 = [...p].map((x, i) => [x, i]).sort((a, b) => a[0] > b[0]).map(([x, i]) => i)
+  return (x) => p2[x]
+}
+
+
+// Get the window size and fill it with one big svg
+const width = window.innerWidth * .95;
+const height = window.innerHeight * .95;
+const svg = d3.create("svg")
+  .attr("width", width)
+  .attr("height", height);
+
+// Append the SVG element.
+container.append(svg.node());
+
+
 // create a tooltip
 const tooltip = d3.select("#container")
   .append("div")
@@ -34,62 +108,13 @@ const mouseleave = function (event, d) {
     .style("stroke", "none")
 }
 
-// Declare the chart dimensions and margins.
-const width = 1280;
-const height = 900;
-const bbox = function (width, height, leftOffset, topOffset) {
-  return {
-    width,
-    height,
-    left: leftOffset,
-    bottom: height + topOffset,
-    right: leftOffset + width,
-    top: topOffset
-  };
-}
-
-// sorts an array and returns set or indexes to sorted order
-const permutator = (A) => {
-  const p = [...A].map((x, i) => [x, i]).sort((a, b) => a[0] > b[0]).map(([x, i]) => i)
-  const p2 = [...p].map((x, i) => [x, i]).sort((a, b) => a[0] > b[0]).map(([x, i]) => i)
-  return (x) => p2[x]
-}
-
-const mbox = function (bbox, shape) {
-  const [gridHeight, gridWidth] = shape;
-  const box = {}
-  if (gridHeight / gridWidth > bbox.height / bbox.width) {
-    // tall matrix, use bbox height, adjust width
-    box.height = bbox.height;
-    box.width = box.height * gridWidth / gridHeight;
-    box.top = bbox.top;
-    box.left = bbox.left + (bbox.width - box.width) / 2;
-  } else {
-    // fat matrix, use bbox width, adjust height
-    box.width = bbox.width;
-    box.height = box.width * gridHeight / gridWidth;
-    box.left = bbox.left;
-    box.top = bbox.top + (bbox.height - box.height) / 2;
-  }
-  box.bottom = box.top + box.height;
-  box.right = box.left + box.width;
-
-  return box;
-}
-
-// Create the SVG container.
-const svg = d3.create("svg")
-  .attr("width", width)
-  .attr("height", height);
-
-// Append the SVG element.
-container.append(svg.node());
-//const color = d3.scaleSequential(d3.interpolatePiYG)
 const color = d3.scaleSequential(d3.interpolateInferno)
 const l2color = d3.scaleSequential(d3.interpolateBlues)
-const xAxis = svg.append("g")
-const yAxis = svg.append("g")
+//const xAxis = svg.append("g")
+//const yAxis = svg.append("g")
 
+
+// The main functin that draws everything once we have our data
 function draw(data, shape) {
 
   const [dataRows, dataCols] = shape;
@@ -102,7 +127,7 @@ function draw(data, shape) {
     colSums[col] += x * x;
   });
 
-  const m = mbox(bbox(1000, 750, 50, 10), shape)
+  const m = mbox(bbox(width, height, 0, 0), shape)
   color.domain([d3.min(data), d3.max(data)]);
 
   // Declare the x (horizontal position) scale.
@@ -115,6 +140,9 @@ function draw(data, shape) {
     .domain([...Array(dataRows).keys()])
     .range([m.top, m.bottom]);
 
+  // For now commenting out the axes and opting for a tool tip that
+  // shows these details upon request along with the value of any cell
+  //  
   // Add the x-axis.
   //xAxis 
   //  .attr("transform", `translate(0,${m.bottom})`)
@@ -127,6 +155,8 @@ function draw(data, shape) {
   //  .call(d3.axisLeft(y).tickSize(0))
   //  .select(".domain").remove();
 
+  // For now we're defaulting to sorting by row and column l2 norms
+  // but this should be selectable in the future
   const px = permutator(colSums);
   const py = permutator(rowSums);
 
@@ -185,14 +215,19 @@ const drawLayer = function (layer) {
     layer.getWeights()[0].data().then(data => draw(data, shape));
   });
 }
+
+// Finally we load the model and draw the kernel
 tf.loadLayersModel('models/model.json').then(model => {
 
   const layerCount = model.layers.length;
   const lastLayer = layerCount - 1
 
   const layerList = [...Array(layerCount).keys()]
+  // get rid of the 0 entry and reverse
+  layerList.shift();
+  layerList.reverse();
   d3.select("#layer-select")
-    .selectAll('myOptions')
+    .selectAll('option')
     .data(layerList)
     .enter()
     .append('option')
