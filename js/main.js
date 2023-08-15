@@ -35,7 +35,6 @@ const mbox = function (bbox, shape) {
   }
   box.bottom = box.top + box.height;
   box.right = box.left + box.width;
-  console.log(box, bbox, shape)
   return box;
 }
 
@@ -86,24 +85,18 @@ const tooltip = d3.select("#container")
   .style("padding", "5px")
   .style("position", "fixed")
 
+const closeButton = tooltip.append("button")
+  .html("x")
+  .on("click", ()=>tooltip.style("opacity", 0))
+
+const tooltipText = tooltip.append("div")
 // Three function that change the tooltip when user hover / move / leave a cell
 const mouseover = function (event, d) {
-  tooltip
-    .style("opacity", 1)
   d3.select(this)
     .style("stroke", "black")
     .style("opacity", 1)
 }
-const mousemove = function (event, d) {
-  const ix = d3.select(this).attr("ix")
-  tooltip
-    .html("index: " + ix + "<br>value: " + format(d))
-    .style("left", (event.x) + 50 + "px")
-    .style("top", (event.y) + 50 + "px")
-}
 const mouseleave = function (event, d) {
-  tooltip
-    .style("opacity", 0)
   d3.select(this)
     .style("stroke", "none")
 }
@@ -118,15 +111,38 @@ const l2color = d3.scaleSequential(d3.interpolateBlues)
 function draw(data, shape) {
 
   const [dataRows, dataCols] = shape;
-  const rowSums = Array(dataRows).fill(0);
-  const colSums = Array(dataCols).fill(0);
+  const rowOf = (i) => Math.trunc(i/dataCols);
+  const colOf = (i) => i % dataCols;
+  var rowNorms = Array(dataRows).fill(0);
+  var colNorms = Array(dataCols).fill(0);
   data.forEach((x, i) => {
-    const row = Math.trunc(i / dataCols);
-    const col = i % dataCols;
-    rowSums[row] += x * x;
-    colSums[col] += x * x;
+    const row = rowOf(i);
+    const col = colOf(i);
+    rowNorms[row] += x * x;
+    colNorms[col] += x * x;
   });
+  rowNorms = rowNorms.map(x => Math.sqrt(x));
+  colNorms = colNorms.map(x => Math.sqrt(x));
 
+const click = function (event, d) {
+  const ix = d3.select(this).attr("ix")
+  const row = d3.select(this).attr("row")
+  const col = d3.select(this).attr("col")
+  tooltipText
+    .html("value: " + format(d))
+  if(col!=null) 
+    tooltipText.append("span").html("<br>column: " + col)
+  if(row!=null) 
+    tooltipText.append("span").html("<br>row: " + row)
+  if(ix!=null) { 
+    tooltipText.append("span").html("<br>row: " + rowOf(ix))
+    tooltipText.append("span").html("<br>column: " + colOf(ix))
+  }
+  tooltip
+    .style("left", (event.x) + 50 + "px")
+    .style("top", (event.y) + 50 + "px")
+    .style("opacity", 1)
+}
   const m = mbox(bbox(width, height, 0, 0), shape)
   color.domain([d3.min(data), d3.max(data)]);
 
@@ -155,10 +171,11 @@ function draw(data, shape) {
   //  .call(d3.axisLeft(y).tickSize(0))
   //  .select(".domain").remove();
 
-  // For now we're defaulting to sorting by row and column l2 norms
-  // but this should be selectable in the future
-  const px = permutator(colSums);
-  const py = permutator(rowSums);
+  // Set the default row and column permutators to basic identity arrays
+  var px = permutator([...Array(dataCols).keys()])
+  var py = permutator([...Array(dataRows).keys()])
+  //const px = permutator(colNorms);
+  //const py = permutator(rowNorms);
 
   svg.selectAll(".m")
     .data(data)
@@ -171,39 +188,37 @@ function draw(data, shape) {
     .attr("height", y.bandwidth())
     .style("fill", (d) => color(d))
     .on("mouseover", mouseover)
-    .on("mousemove", mousemove)
+    .on("click", click)
     .on("mouseleave", mouseleave)
 
-  var l2 = rowSums.map(x => Math.sqrt(x));
-  l2color.domain([d3.min(l2), d3.max(l2)]);
+  l2color.domain([d3.min(rowNorms), d3.max(rowNorms)]);
   svg.selectAll(".r")
-    .data(l2)
+    .data(rowNorms)
     .join("rect")
     .attr("class", "r")
     .attr("x", m.right + 2 * x.bandwidth())
     .attr("y", (d, i) => y(py(i)))
-    .attr("ix", (d, i) => i)
+    .attr("row", (d, i) => i)
     .attr("width", x.bandwidth())
     .attr("height", y.bandwidth())
     .attr("fill", (d) => l2color(d))
     .on("mouseover", mouseover)
-    .on("mousemove", mousemove)
+    .on("click", click)
     .on("mouseleave", mouseleave)
 
-  l2 = colSums.map(x => Math.sqrt(x));
-  l2color.domain([d3.min(l2), d3.max(l2)]);
+  l2color.domain([d3.min(colNorms), d3.max(colNorms)]);
   svg.selectAll(".c")
-    .data(l2)
+    .data(colNorms)
     .join("rect")
     .attr("class", "c")
     .attr("y", m.bottom + 2 * y.bandwidth())
     .attr("x", (d, i) => x(px(i)))
-    .attr("ix", (d, i) => i)
+    .attr("col", (d, i) => i)
     .attr("width", x.bandwidth())
     .attr("height", y.bandwidth())
     .attr("fill", (d) => l2color(d))
     .on("mouseover", mouseover)
-    .on("mousemove", mousemove)
+    .on("click", click)
     .on("mouseleave", mouseleave)
 
 }
