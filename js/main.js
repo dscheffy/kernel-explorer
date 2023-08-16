@@ -108,7 +108,7 @@ const l2color = d3.scaleSequential(d3.interpolateBlues)
 
 
 // The main functin that draws everything once we have our data
-function draw(data, shape) {
+function prepLayer(data, shape) {
 
   const [dataRows, dataCols] = shape;
   const rowOf = (i) => Math.trunc(i/dataCols);
@@ -130,17 +130,39 @@ const click = function (event, d) {
   const col = d3.select(this).attr("col")
   tooltipText
     .html("value: " + format(d))
-  if(col!=null) 
+  if(col!=null) { 
     tooltipText.append("span").html("<br>column: " + col)
-  if(row!=null) 
+    tooltipText.append("br")
+    tooltipText.append("button")
+      .html("Sort Columns")
+      .on("click", ()=>sortColumns(permutator(colNorms)))
+  } else if(row!=null) {
     tooltipText.append("span").html("<br>row: " + row)
-  if(ix!=null) { 
-    tooltipText.append("span").html("<br>row: " + rowOf(ix))
-    tooltipText.append("span").html("<br>column: " + colOf(ix))
+    tooltipText.append("br")
+    tooltipText.append("button")
+      .html("Sort Rows")
+      .on("click", ()=>sortRows(permutator(rowNorms)))
+  } else if(ix!=null) { 
+    const ixcol = colOf(ix)
+    const ixrow = rowOf(ix)
+    tooltipText.append("span").html("<br>index: " + ix)
+    tooltipText.append("span").html("<br>row: " + ixrow)
+    tooltipText.append("span").html("<br>column: " + ixcol)
+    tooltipText.append("br")
+    tooltipText.append("button")
+      .html("Sort Rows")
+      .on("click", ()=>sortRows(permutator([...Array(dataRows).keys()].map(i=>i*dataCols+ixcol).map(idx=>data[idx]))))
+    tooltipText.append("br")
+    tooltipText.append("button")
+      .html("Sort Columns")
+      .on("click", ()=>sortColumns(permutator(data.slice(ixrow*dataCols,(ixrow+1)*dataCols))))
   }
   tooltip
-    .style("left", (event.x) + 50 + "px")
-    .style("top", (event.y) + 50 + "px")
+    .style("left", "0px")
+    .style("top", "0px")
+//    .style("left", (event.x) + 50 + "px")
+//    .style("top", (event.y) + 50 + "px")
+    .style("position","absolute")
     .style("opacity", 1)
 }
   const m = mbox(bbox(width, height, 0, 0), shape)
@@ -177,12 +199,14 @@ const click = function (event, d) {
   //const px = permutator(colNorms);
   //const py = permutator(rowNorms);
 
+  function draw() {
+
   svg.selectAll(".m")
     .data(data)
     .join("rect")
     .attr("class", "m")
-    .attr("x", (d, i) => x(px(i % dataCols)))
-    .attr("y", (d, i) => y(py(Math.trunc(i / dataCols))))
+    .attr("x", (d, i) => x(i % dataCols))
+    .attr("y", (d, i) => y(Math.trunc(i / dataCols)))
     .attr("ix", (d, i) => i)
     .attr("width", x.bandwidth())
     .attr("height", y.bandwidth())
@@ -197,7 +221,7 @@ const click = function (event, d) {
     .join("rect")
     .attr("class", "r")
     .attr("x", m.right + 2 * x.bandwidth())
-    .attr("y", (d, i) => y(py(i)))
+    .attr("y", (d, i) => y(i))
     .attr("row", (d, i) => i)
     .attr("width", x.bandwidth())
     .attr("height", y.bandwidth())
@@ -212,7 +236,7 @@ const click = function (event, d) {
     .join("rect")
     .attr("class", "c")
     .attr("y", m.bottom + 2 * y.bandwidth())
-    .attr("x", (d, i) => x(px(i)))
+    .attr("x", (d, i) => x(i))
     .attr("col", (d, i) => i)
     .attr("width", x.bandwidth())
     .attr("height", y.bandwidth())
@@ -220,14 +244,37 @@ const click = function (event, d) {
     .on("mouseover", mouseover)
     .on("click", click)
     .on("mouseleave", mouseleave)
-
+  }
+  draw();
+  function sortRows(py) {
+    svg.selectAll(".m")
+      .transition()   // is there any benefit to this animation?
+      .duration(2000)
+      .attr("y", (d, i) => y(py(Math.trunc(i / dataCols))))
+    svg.selectAll(".r")
+      .transition()
+      .duration(2000)
+      .attr("y", (d, i) => y(py(i)))
+  }
+  function sortColumns(px) {
+    svg.selectAll(".m")
+      .transition()
+      .duration(2000)
+      .attr("x", (d, i) => x(px(i % dataCols)))
+    svg.selectAll(".c")
+      .transition()
+      .duration(2000)
+      .attr("x", (d, i) => x(px(i)))
+  }
 }
 
+// Define a function to handle the selected layer and pass it to the 
+// draw function
 const drawLayer = function (layer) {
 
   const shape = layer.kernel.shape
   tf.tidy(() => {
-    layer.getWeights()[0].data().then(data => draw(data, shape));
+    layer.getWeights()[0].data().then(data => prepLayer(data, shape));
   });
 }
 
