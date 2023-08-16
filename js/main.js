@@ -1,3 +1,8 @@
+// Initialize default and global layer/model numbers
+var layerNumber = 5
+var epochNumber = 50
+var modelName = "diagonal"
+
 // Create some basic functions for reuse later on
 
 // Creates a bounding box for containing stuff
@@ -20,18 +25,24 @@ const mbox = function (bbox, shape) {
   // leave an extra margin for aggregator displays
   const gridMargin = 3;
   const box = {}
-  if ((gridHeight + gridMargin) / (gridWidth + gridMargin) > bbox.height / bbox.width) {
+  const outerGridHeight = gridHeight + gridMargin;
+  const outerGridWidth = gridWidth + gridMargin;
+  if (outerGridHeight / outerGridWidth > bbox.height / bbox.width) {
     // tall matrix, use bbox height, adjust width
+    const outerHeight = bbox.height;
+    const outerWidth = bbox.height * outerGridWidth / outerGridHeight
     box.height = bbox.height * (1 - gridMargin / (gridHeight + gridMargin));
     box.width = box.height * gridWidth / gridHeight;
     box.top = bbox.top;
-    box.left = bbox.left + (bbox.width - box.width) / 2; // need to fix based on margin
+    box.left = bbox.left + (bbox.width - outerWidth) / 2; // need to fix based on margin
   } else {
     // fat matrix, use bbox width, adjust height
+    const outerWidth = bbox.width
+    const outerHeight = bbox.width * outerGridHeight / outerGridWidth
     box.width = bbox.width * (1 - gridMargin / (gridWidth + gridMargin));
     box.height = box.width * gridHeight / gridWidth;
     box.left = bbox.left;
-    box.top = bbox.top + (bbox.height - box.height) / 2; // need to take margin into account
+    box.top = bbox.top + (bbox.height - outerBoxHeight) / 2; // need to take margin into account
   }
   box.bottom = box.top + box.height;
   box.right = box.left + box.width;
@@ -248,22 +259,14 @@ const click = function (event, d) {
   draw();
   function sortRows(py) {
     svg.selectAll(".m")
-      .transition()   // is there any benefit to this animation?
-      .duration(2000)
       .attr("y", (d, i) => y(py(Math.trunc(i / dataCols))))
     svg.selectAll(".r")
-      .transition()
-      .duration(2000)
       .attr("y", (d, i) => y(py(i)))
   }
   function sortColumns(px) {
     svg.selectAll(".m")
-      .transition()
-      .duration(2000)
       .attr("x", (d, i) => x(px(i % dataCols)))
     svg.selectAll(".c")
-      .transition()
-      .duration(2000)
       .attr("x", (d, i) => x(px(i)))
   }
 }
@@ -279,8 +282,7 @@ const drawLayer = function (layer) {
 }
 
 // Finally we load the model and draw the kernel
-tf.loadLayersModel('models/model.json').then(model => {
-
+const loadModel = (n) => tf.loadLayersModel("models/"+modelName+"/"+n+"/model.json").then(model => {
   const layerCount = model.layers.length;
   const lastLayer = layerCount - 1
 
@@ -298,13 +300,50 @@ tf.loadLayersModel('models/model.json').then(model => {
 
   d3.select("#layer-select").on("change", function (d) {
     // recover the option that has been chosen
-    var selectedLayer = d3.select(this).property("value")
+    layerNumber = d3.select(this).property("value")
     // run the updateChart function with this selected option
-    drawLayer(model.layers[selectedLayer])
+    drawLayer(model.layers[layerNumber])
   })
 
-  drawLayer(model.layers[lastLayer])
+  drawLayer(model.layers[layerNumber])
 
 
 });
 
+  d3.select("#epoch-select")
+    .selectAll('option')
+    .data([...Array(50)].keys())
+    .enter()
+    .append('option')
+    .text(function (d) { return d; }) // text showed in the menu
+    .attr("value", function (d) { return d; }) // corresponding value returned by the button
+  d3.select("#epoch-select")
+    .append('option')
+    .text("50")
+    .attr("value", "50")
+    .attr("selected", "selected")
+
+  d3.select("#epoch-select")
+    .on("change", function (d) {
+      epochNumber = d3.select(this).property("value")
+      loadModel(epochNumber)
+    })
+
+loadModel(epochNumber)
+
+  d3.select("#model-select")
+    .append('option')
+    .text("random")
+    .attr("value", "random")
+
+  d3.select("#model-select")
+    .append('option')
+    .text("diagonal")
+    .attr("value", "diagonal")
+    .attr("selected", "selected")
+
+  d3.select("#model-select")
+    .on("change", function (d) {
+      modelName = d3.select(this).property("value")
+      loadModel(epochNumber)
+    })
