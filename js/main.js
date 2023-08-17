@@ -1,7 +1,48 @@
-// Initialize default and global layer/model numbers
-var layerNumber = 5
-var epochNumber = 50
-var modelName = "diagonal"
+const getQueryParams = () => {
+  const qp = {};
+  window.location.search
+    .replace(/\?/, "")
+    .split("&")
+    .map((x) => x.split("="))
+    .filter((x) => x && Array.isArray(x) && x.length === 2)
+    .forEach(
+      (pair) => (qp[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1]))
+    );
+  return qp;
+};
+
+const setQueryParams = (qp) => {
+  if (history.replaceState) {
+    const queryString = !(qp && Object.keys(qp).length > 0)
+      ? ""
+      : "?" +
+        Object.keys(qp)
+          .map(
+            (key) => encodeURIComponent(key) + "=" + encodeURIComponent(qp[key])
+          )
+          .join("&");
+    var newurl =
+      window.location.protocol +
+      "//" +
+      window.location.host +
+      window.location.pathname +
+      queryString;
+    window.history.replaceState({ path: newurl }, "", newurl);
+  }
+};
+
+
+// Initialize global layer/model numbers to defaults or values 
+// passed in as query string parms on the URL
+const queryParams = getQueryParams();
+var layerNumber = queryParams["layer"];
+layerNumber ??= 5;
+
+var epochNumber = queryParams["epoch"];
+epochNumber ??= 50
+
+var modelName = queryParams["model"];
+modelName ??= "diagonal"
 
 // Create some basic functions for reuse later on
 
@@ -297,10 +338,13 @@ const loadModel = (n) => tf.loadLayersModel("models/"+modelName+"/"+n+"/model.js
     .append('option')
     .text(function (d) { return d; }) // text showed in the menu
     .attr("value", function (d) { return d; }) // corresponding value returned by the button
+    .attr("selected", (d) => (d==layerNumber ? "selected" : null))
 
   d3.select("#layer-select").on("change", function (d) {
     // recover the option that has been chosen
     layerNumber = d3.select(this).property("value")
+    queryParams.layer=layerNumber;
+    setQueryParams(queryParams);
     // run the updateChart function with this selected option
     drawLayer(model.layers[layerNumber])
   })
@@ -312,38 +356,36 @@ const loadModel = (n) => tf.loadLayersModel("models/"+modelName+"/"+n+"/model.js
 
   d3.select("#epoch-select")
     .selectAll('option')
-    .data([...Array(50)].keys())
+    .data([...Array(51)].keys())
     .enter()
     .append('option')
     .text(function (d) { return d; }) // text showed in the menu
     .attr("value", function (d) { return d; }) // corresponding value returned by the button
-  d3.select("#epoch-select")
-    .append('option')
-    .text("50")
-    .attr("value", "50")
-    .attr("selected", "selected")
+    .attr("selected", (d) => (d==epochNumber ? "selected" : null))
 
   d3.select("#epoch-select")
     .on("change", function (d) {
       epochNumber = d3.select(this).property("value")
+      queryParams.epoch=epochNumber;
+      setQueryParams(queryParams);
       loadModel(epochNumber)
     })
 
 loadModel(epochNumber)
 
   d3.select("#model-select")
+    .selectAll('option')
+    .data(["random","diagonal"])
+    .enter()
     .append('option')
-    .text("random")
-    .attr("value", "random")
-
-  d3.select("#model-select")
-    .append('option')
-    .text("diagonal")
-    .attr("value", "diagonal")
-    .attr("selected", "selected")
+    .text(function (d) { return d; }) // text showed in the menu
+    .attr("value", function (d) { return d; }) // corresponding value returned by the button
+    .attr("selected", (d) => (d==modelName ? "selected" : null))
 
   d3.select("#model-select")
     .on("change", function (d) {
       modelName = d3.select(this).property("value")
+      queryParams.model=modelName;
+      setQueryParams(queryParams)
       loadModel(epochNumber)
     })
