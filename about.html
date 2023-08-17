@@ -1,3 +1,21 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>About Kernel Explorer</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+  </style>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
 <h1 id="kernel-explorer">Kernel Explorer</h1>
 <blockquote>
 <p>This is an initial proof of concept, so it’s definitely a bit ugly (the code included).</p>
@@ -9,3 +27,5 @@
 <p>My goal here was to create a tool that would make it easier to dive into the kernel matrices that make up the dense layers of trained neural networks. I think a lot of people have a hard time grasping what’s going on at this level and simply quickly give up trying because things just kind of work as is. I was hoping something like this tool or even just this approach to exploring the kernels might make understanding them a little bit easier.</p>
 <h2 id="next-steps">Next Steps</h2>
 <p>I’d actually like to make it easier to follow the flow of information from one layer to the next or previous layer. I’m thinking about transposing adjacent layers and then displaying them next to, or above/below the current layer in order to line up rows with columns – that way it would be easier to see how the inputs of one layer line up with the outputs of the previous, and how the outputs of the current layer map to the inputs of the next.</p>
+</body>
+</html>

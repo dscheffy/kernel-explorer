@@ -42,7 +42,7 @@ const mbox = function (bbox, shape) {
     box.width = bbox.width * (1 - gridMargin / (gridWidth + gridMargin));
     box.height = box.width * gridHeight / gridWidth;
     box.left = bbox.left;
-    box.top = bbox.top + (bbox.height - outerBoxHeight) / 2; // need to take margin into account
+    box.top = bbox.top + (bbox.height - outerHeight) / 2; // need to take margin into account
   }
   box.bottom = box.top + box.height;
   box.right = box.left + box.width;
