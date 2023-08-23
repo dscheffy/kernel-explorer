@@ -1,9 +1,104 @@
+const getQueryParams = () => {
+  const qp = {};
+  window.location.search
+  .replace(/\?/,"")
+  .split("&")
+  .map(x => x.split("="))
+  .filter(x => x && Array.isArray(x) && x.length === 2)
+  .forEach(pair => qp[decodeURIComponent(pair[0])]=decodeURIComponent(pair[1]));
+  return qp;  
+}
+
+const setQueryParams = (qp) => {
+  if (history.replaceState) {
+    const queryString = !(qp && Object.keys(qp).length > 0) ? "" :
+      "?" + Object.keys(qp)
+      .map(key => (encodeURIComponent(key) + "=" + encodeURIComponent(qp[key])))
+      .join("&");
+    var newurl = window.location.protocol + "//" + window.location.host + window.location.pathname + queryString;
+    window.history.replaceState({path:newurl},'',newurl);
+  }
+}
+
+var qp = getQueryParams()
+var selectable = {...qp}
+
+
+const buildInput = (name) => {
+  const id = name + "-select"
+  const value = selectable[name]
+
+  const selectors = d3.select("#selectors")
+  selectors.append("label").attr("for",id).text(name+": ");
+  
+  const input = selectors.append("input")
+  input 
+    .attr("id",id)
+    .attr("type", "text")
+    .attr("name",id)
+    .attr("value",value)
+
+  input 
+    .on("change", function (d) {
+      const selection = d3.select(this).property("value")
+      selectable[name] = selection
+      qp[name] = selection
+      setQueryParams(qp)
+      redraw() 
+    })
+}
+const buildSelector = (name, options) => {
+  const id = name + "-select"
+  const value = selectable[name]
+
+  const selectors = d3.select("#selectors")
+  selectors.append("label").attr("for",id).text(name+": ");
+  
+  const selector = selectors.append("select")
+  selector.attr("id",id)
+  
+  selector
+    .selectAll("option")
+    .data(options)
+    .enter()
+    .append("option")
+    .text(d=>d)
+    .attr("value", d=>d) 
+    .attr("selected", d => (d==value ? "selected" : null))
+
+  selector
+    .on("change", function (d) {
+      const selection = d3.select(this).property("value")
+      selectable[name] = Number.parseFloat(selection)
+      qp[name] = selection
+      setQueryParams(qp)
+      redraw() 
+    })
+}
+
 // Initialize default and global layer/model numbers
-var cycleCount = 3
-var segmentCount = 6
-var startRadius = 5
-var startAngle = 0
+selectable.cycles ??= 3
+selectable.segments ??= 6
+selectable.initialRadius ??= 2
+selectable.cycleMultiplier ??= 1.8
+selectable.startAngle ??= 0
+selectable.stride ??= 4
+selectable.xShift ??= 0.1
+selectable.yShift ??= 0.1
+selectable.tile ??= 1
 const maxSegments = 24;
+const maxCycles = 4;
+
+
+buildSelector("segments", [...Array(maxSegments).keys()].map(k=>k+1))
+buildSelector("cycles", [...Array(maxCycles).keys()].map(k=>k+1))
+buildInput("initialRadius")
+buildInput("cycleMultiplier")
+buildInput("startAngle")
+buildInput("stride")
+buildInput("xShift")
+buildInput("yShift")
+buildInput("tile")
 
 // Create some basic functions for reuse later on
 
@@ -65,6 +160,8 @@ const minY = -10
 const numCols = maxX-minX+1
 const numRows = maxY-minY+1
 
+//http://bunsen.localdomain:8080/spiral.html?yShift=0.2&tile=1&xShift=0.1&startAngle=-20&stride=4&segments=12&cycleMultiplier=1.8&initialRadius=1.9
+
   const shape = [numRows, numCols]
 
   const m = mbox(bbox(width, height, 0, 0), shape)
@@ -72,7 +169,7 @@ const numRows = maxY-minY+1
 
   // Declare the x (horizontal position) scale.
   const gridX = d3.scaleBand()
-    .domain([...Array(numCols).keys()])
+    .domain([...Array(numCols).keys()].map(x=>x+minX))
     .range([m.left, m.right]);
 
   const scaleX = d3.scaleLinear()
@@ -81,12 +178,12 @@ const numRows = maxY-minY+1
 
   // Declare the y (vertical position) scale.
   const gridY = d3.scaleBand()
-    .domain([...Array(numRows).keys()])
-    .range([m.top, m.bottom]);
+    .domain([...Array(numRows).keys()].map(y=>y+minY))
+    .range([m.bottom, m.top]);
 
   const scaleY = d3.scaleLinear()
     .domain([minY-.5, maxY+.5])
-    .range([m.top, m.bottom]);
+    .range([m.bottom, m.top]);
 
   function drawGrid() {
 
@@ -94,38 +191,26 @@ const numRows = maxY-minY+1
     .data([...Array(numRows*numCols).keys()])
     .join("rect")
     .attr("class", "m")
-    .attr("x", (d, i) => gridX(i % numCols))
-    .attr("y", (d, i) => gridY(Math.trunc(i / numCols)))
+    .attr("x", (d, i) => gridX((i % numCols)+minX))
+    .attr("y", (d, i) => gridY(Math.trunc(i / numCols)+minY))
     .attr("width", gridX.bandwidth())
     .attr("height", gridY.bandwidth())
     .style("stroke", "black")
     .style("fill", "white")
 
-//  fill the grid as a simple visual test -- circles should be centered
-//  in each grid square
-//  
-//  svg.selectAll(".c")
-//    .data([...Array(numRows*numCols).keys()])
-//    .join("circle")
-//    .attr("class", "c")
-//    .attr("cx", (d, i) => x((i % numCols) - (numCols-1)/2))
-//    .attr("cy", (d, i) => y(Math.floor(i / numCols - (numRows-1)/2)))
-//    .attr("r", gridY.bandwidth()/4)
-//    .style("fill", "red")
   }
 drawGrid()
 
-const draw = () => {
-  const seed = [...Array(segmentCount*cycleCount).keys()]
-  const base = Math.pow(2,1/segmentCount)
-  const r = (i) => (Math.pow(base,i))
-  const theta = (i) => ((i % segmentCount) * 2 * Math.PI / segmentCount)
-  //const x = ([r,theta]) => r * Math.cos(theta)
-  const xc = ([r,theta]) => r * Math.cos(theta)
-  const yc = ([r,theta]) => r * Math.sin(theta)
-  const radial = seed.map(i=>[r(i),theta(i)])
-  const cartesian = radial.map((i)=>[xc(i),yc(i)])
-  console.log(cartesian)
+const draw = (offset=[0,0], instance="0") => {
+  const [xOffset, yOffset] = offset;
+  const seed = [...Array(selectable.segments*selectable.cycles).keys()]
+  const base = Math.pow(selectable.cycleMultiplier,1/selectable.segments)
+  const r = (i) => (selectable.initialRadius * Math.pow(base,i))
+  const theta = (i) => ((i * 2 * Math.PI / selectable.segments) + (selectable.startAngle/180*Math.PI))
+  const xc = ([r,theta]) => r * Math.sin(theta) + Number.parseFloat(selectable.xShift)
+  const yc = ([r,theta]) => r * Math.cos(theta) + Number.parseFloat(selectable.yShift)
+  const polar = seed.map(i=>[r(i),theta(i)])
+  const cartesian = polar.map((i)=>[xc(i)+xOffset,yc(i)+yOffset])
   svg.selectAll(".c")
     .data(cartesian)
     .join("circle")
@@ -135,39 +220,37 @@ const draw = () => {
     .attr("r", gridY.bandwidth()/4)
     .style("fill", "red")
 }
-draw()
+const drawInstance = (offset=[0,0], instance="0") => {
+  const [xOffset, yOffset] = offset;
+  const seed = [...Array(selectable.segments*selectable.cycles).keys()]
+  const base = Math.pow(selectable.cycleMultiplier,1/selectable.segments)
+  const r = (i) => (selectable.initialRadius * Math.pow(base,i))
+  const theta = (i) => ((i * 2 * Math.PI / selectable.segments) + (selectable.startAngle/180*Math.PI))
+  const xc = ([r,theta]) => r * Math.sin(theta) + Number.parseFloat(selectable.xShift)
+  const yc = ([r,theta]) => r * Math.cos(theta) + Number.parseFloat(selectable.yShift)
+  const polar = seed.map(i=>[r(i),theta(i)])
+  const cartesian = polar.map((i)=>[xc(i)+xOffset,yc(i)+yOffset])
+  svg.selectAll(".r" + instance)
+    .data(cartesian)
+    .join("rect")
+    .attr("class", "r"+instance)
+    .attr("x", ([x,y], i) => gridX(Math.round(x)))
+    .attr("y", ([x,y], i) => gridY(Math.round(y)))
+    .attr("height", gridY.bandwidth())
+    .attr("width", gridX.bandwidth())
+    .style("fill", "blue")
+    .style("opacity", "40%")
+}
 
-const maxCycles = 4;
-// get rid of the 0 entry and reverse
-d3.select("#cycle-select")
-    .selectAll('option')
-    .data([...Array(maxCycles).keys()].map(k=>k+1))
-    .enter()
-    .append('option')
-    .text(function (d) { return d; }) // text showed in the menu
-    .attr("value", function (d) { return d; }) // corresponding value returned by the button
-    .attr("selected", (d) => (d==cycleCount ? "selected" : null))
+const drawTiles = () => {
 
-  d3.select("#cycle-select").on("change", function (d) {
-    cycleCount = d3.select(this).property("value")
-    redraw()
+  const repeats = [...Array(Number.parseInt(selectable.tile)).keys()].map(x=>x-Math.floor(selectable.tile/2))
+  console.log(selectable.tile,repeats)
+  //var repeats = [-5,-4,-3,-2,-1,0,1,2,3,4,5]
+  repeats.forEach((xd,xi)=>{
+    repeats.forEach((yd,yi)=>(drawInstance([xd*selectable.stride,yd*selectable.stride],"-"+xi+yi)))
   })
-
-
-
-
-  d3.select("#segment-select")
-    .selectAll('option')
-    .data([...Array(maxSegments).keys()].map(k=>k+1))
-    .enter()
-    .append('option')
-    .text(function (d) { return d; }) // text showed in the menu
-    .attr("value", function (d) { return d; }) // corresponding value returned by the button
-    .attr("selected", (d) => (d==segmentCount ? "selected" : null))
-
-  d3.select("#segment-select")
-    .on("change", function (d) {
-      segmentCount = d3.select(this).property("value")
-      redraw() 
-    })
-const redraw = draw
+}
+drawTiles()
+draw()
+const redraw = () => {drawTiles();draw()}
